@@ -1,0 +1,222 @@
+<template>
+  <ul v-if="modelNode.title" class="i-tree">
+    <li class="i-tree-item" @mouseenter="mouseEnter" @mouseleave="mouseLeave">
+      <template v-if="!modelNode.isLeaf">
+        <a-icon v-if="modelNode.isOpen" type="folder-open" class="i-tree-icon" @click="toggleOpen(modelNode)" />
+        <template v-else>
+          <a-icon v-if="isLoading" type="loading" class="i-tree-icon" />
+          <a-icon v-else type="folder" class="i-tree-icon" @click="toggleOpen(modelNode)" />
+        </template>
+      </template>
+      <template v-else>
+        <a-icon type="file" class="i-tree-icon" />
+      </template>
+      <span class="i-tree-title" @click="toggleOpen(modelNode)">
+        {{ modelNode.title }}
+      </span>
+      <span v-if="isHover" class="i-tree-op">
+        <a-icon type="edit" class="i-tree-icon" @click="editTreeNode(modelNode)" />
+        <a-icon type="folder-add" class="i-tree-icon" @click="addNewTreeNode(modelNode)" />
+        <a-icon type="delete" class="i-tree-icon" @click="delTreeNode(modelNode)" />
+      </span>
+    </li>
+    <template v-if="modelNode.isOpen">
+      <i-tree v-for="(item, index) in modelNode.children" :key="index" :model="item"></i-tree>
+    </template>
+  </ul>
+</template>
+
+<script>
+export default {
+  name: 'ITree',
+  props: {
+    delNode: {
+      type: Function
+    },
+    model: {
+      type: Object
+    }
+  },
+  data() {
+    return {
+      modelNode: this.model,
+      isLoading: false,
+      isHover: false
+    };
+  },
+  created() {
+    console.log(this.delNode);
+  },
+  methods: {
+    // 展开收起
+    toggleOpen(modelNode) {
+      if (!modelNode.isLeaf) {
+        if (modelNode.isOpen) {
+          modelNode.isOpen = false;
+        } else {
+          if (modelNode.children && modelNode.children.length > 0) {
+            modelNode.isOpen = true;
+          } else {
+            this.isLoading = true;
+            this.getNewChildren(modelNode).then(newModelNode => {
+              this.isLoading = false;
+              newModelNode.isOpen = true;
+            });
+          }
+        }
+      }
+    },
+    // 异步获取结点
+    getNewChildren(modelNode) {
+      return new Promise((resolve, reject) => {
+        setTimeout(() => {
+          let data = [
+            {
+              title: '异步加载1',
+              isOpen: false,
+              isLeaf: false
+            },
+            {
+              title: '异步加载2',
+              isOpen: false,
+              isLeaf: true
+            },
+            {
+              title: '异步加载3',
+              isOpen: false,
+              isLeaf: true
+            }
+          ];
+          this.$set(modelNode, 'children', data);
+          resolve(modelNode);
+        }, 1000);
+      });
+    },
+    // 鼠标移入
+    mouseEnter() {
+      this.isHover = true;
+    },
+    // 鼠标移出
+    mouseLeave() {
+      this.isHover = false;
+    },
+    // 新增结点
+    addNewTreeNode(modelNode) {
+      let rename = prompt('请输入新增的结点名称：', '');
+      if (rename != null && rename != '') {
+        const key = 'updatable';
+        this.$message.loading({ content: '新增中...', key });
+        let data = [
+          {
+            title: rename,
+            isOpen: false,
+            isLeaf: true
+          }
+        ];
+        if (modelNode.isLeaf) {
+          modelNode.isLeaf = false;
+          this.$set(modelNode, 'children', data);
+          modelNode.isOpen = true;
+          this.$message.success({ content: '新增成功!', key, duration: 2 });
+        } else {
+          if (modelNode.children && modelNode.children.length > 0) {
+            modelNode.children = [...modelNode.children, ...data];
+            modelNode.isOpen = true;
+            this.$message.success({ content: '新增成功!', key, duration: 2 });
+          } else {
+            this.isLoading = true;
+            this.getNewChildren(modelNode).then(newModelNode => {
+              newModelNode.children = [...newModelNode.children, ...data];
+              newModelNode.isOpen = true;
+              this.isLoading = false;
+              this.$message.success({ content: '新增成功!', key, duration: 2 });
+            });
+          }
+        }
+      }
+      // console.log(JSON.stringify(modelNode));
+    },
+    // 修改结点
+    editTreeNode(modelNode) {
+      let rename = prompt('请输入修改后的结点名称：', modelNode.title);
+      if (rename != null && rename != '') {
+        const key = 'updatable';
+        this.$message.loading({ content: '修改中...', key });
+        setTimeout(() => {
+          modelNode.title = rename;
+          this.$message.success({ content: '修改成功!', key, duration: 2 });
+        }, 1000);
+      }
+    },
+    // 删除结点
+    delTreeNode(modelNode) {
+      let that = this;
+      that.$confirm({
+        title: '提示',
+        content: '确定删除当前结点?',
+        okText: '删除',
+        okType: 'danger',
+        cancelText: '取消',
+        maskClosable: true,
+        onOk() {
+          that.delNode('1324', function(res) {
+            console.log(res);
+          });
+          // const key = 'updatable';
+          // that.$message.loading({ content: '删除中...', key });
+          // setTimeout(() => {
+          //   modelNode.title = null;
+          //   that.$message.success({ content: '删除成功!', key, duration: 2 });
+          // }, 1000);
+        },
+        onCancel() {
+          console.log('Cancel');
+        }
+      });
+    }
+  }
+};
+</script>
+
+<style lang="less">
+.i-tree {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0 0 0 30px;
+  user-select: none;
+  .i-tree-item {
+    margin: 0;
+    padding: 0 5px;
+    font-size: 14px;
+    list-style: none;
+    cursor: pointer;
+    &:hover {
+      background: #eaf4fe;
+      .active {
+        display: block;
+      }
+    }
+    .i-tree-icon {
+      font-size: 14px;
+    }
+    .i-tree-title {
+      padding: 0 5px;
+    }
+    .i-tree-op {
+      border-radius: 2px;
+      padding: 0 5px;
+      background: #cae3fd;
+      .i-tree-icon {
+        margin: 0 5px;
+        &:hover {
+          color: #2d8cf0;
+        }
+        &:last-child:hover {
+          color: red;
+        }
+      }
+    }
+  }
+}
+</style>
